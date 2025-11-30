@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AYAKAレストラン オーダーシステム</title>
+    <style>
+        /* スタイリング */
+        body { font-family: 'Arial', sans-serif; margin: 20px; background-color: #f7f7f7; }
+        .container { max-width: 800px; margin: auto; background-color: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; text-align: center; }
+        .screen { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 5px; background-color: #fff; }
+        .hidden { display: none; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; background-color: #4CAF50; color: white; border: none; border-radius: 5px; transition: background-color 0.3s; }
+        button:hover { background-color: #45a049; }
+        select, input[type="number"] { padding: 8px; margin: 5px; border-radius: 4px; border: 1px solid #ccc; }
+        .menu-category h3 { border-bottom: 2px solid #ddd; padding-bottom: 5px; margin-top: 20px; }
+        .menu-item { margin-bottom: 10px; padding: 10px; border: 1px dashed #eee; display: flex; justify-content: space-between; align-items: center; }
+        .total-area { text-align: right; font-size: 1.2em; font-weight: bold; margin-top: 20px; padding-top: 10px; border-top: 2px solid #333; }
+        .receipt-item { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🍽️ AYAKAレストラン オーダーシステム 🍽️</h1>
+
+    <div id="inputScreen" class="screen">
+        <h2>ステップ 1: ご案内</h2>
+        <label for="guests">人数:</label>
+        <input type="number" id="guests" value="1" min="1" max="10">
+        
+        <label for="tableNumber">座席番号:</label>
+        <select id="tableNumber">
+            <option value="T1">テーブル 1</option>
+            <option value="T2">テーブル 2</option>
+            <option value="T3">テーブル 3</option>
+            <option value="T4">テーブル 4</option>
+            <option value="T5">テーブル 5</option>
+        </select>
+        <br><br>
+        <button onclick="startOrder()">オーダー開始</button>
+    </div>
+
+    <div id="orderScreen" class="screen hidden">
+        <h2>ステップ 2: オーダー入力</h2>
+        <p>ようこそ、**<span id="currentTable"></span>**へ！人数: **<span id="currentGuests"></span>**名様</p>
+        
+        <div class="menu-category">
+            <h3>🍝 メイン料理</h3>
+            <div id="mainMenu"></div>
+        </div>
+
+        <div class="menu-category">
+            <h3>🍟 サイドメニュー</h3>
+            <div id="sideMenu"></div>
+        </div>
+
+        <div class="menu-category">
+            <h3>🥤 飲み物</h3>
+            <div id="drinkMenu"></div>
+        </div>
+        
+        <br>
+        <div class="total-area">合計金額: <span id="currentOrderTotal">0</span> 円</div>
+        <button onclick="goToCheckout()">会計へ進む</button>
+        <button onclick="resetSystem()">最初からやり直す</button>
+    </div>
+
+    <div id="checkoutScreen" class="screen hidden">
+        <h2>ステップ 3: 会計</h2>
+        <h3>ご注文内容の確認</h3>
+        <div id="orderSummary"></div>
+        <div class="total-area">
+            合計金額: <span id="finalTotal">0</span> 円
+        </div>
+        
+        <h3>お支払い方法</h3>
+        <select id="paymentMethod">
+            <option value="cash">現金</option>
+            <option value="card">クレジットカード</option>
+            <option value="mobile">モバイル決済</option>
+        </select>
+        <br><br>
+        <button onclick="finishPayment()">決済完了</button>
+        <button onclick="resetSystem()">新しいお客様</button>
+    </div>
+</div>
+
+<script>
+// --- メニューデータ ---
+const MENU = {
+    main: [
+        { name: "ハンバーグプレート", price: 850 },
+        { name: "お子様カレー", price: 600 },
+        { name: "とろとろオムライス", price: 780 },
+        { name: "ミックスピザ", price: 920 }
+    ],
+    side: [
+        { name: "フライドポテト", price: 350 },
+        { name: "ミニサラダ", price: 280 },
+        { name: "パンケーキ (2枚)", price: 450 }
+    ],
+    drink: [
+        { name: "オレンジジュース", price: 250 },
+        { name: "コーラ", price: 250 },
+        { name: "ホットコーヒー", price: 300 },
+        { name: "ミルク", price: 200 }
+    ]
+};
+
+// --- グローバル変数 ---
+let currentOrder = [];
+let totalAmount = 0;
+let tableNum = "";
+let guestCount = 0;
+
+// --- 画面遷移関数 ---
+
+/**
+ * 最初の画面からオーダー画面へ遷移します。
+ */
+function startOrder() {
+    guestCount = parseInt(document.getElementById('guests').value);
+    tableNum = document.getElementById('tableNumber').value;
+
+    if (guestCount < 1) {
+        alert("人数は1名以上で入力してください。");
+        return;
+    }
+
+    document.getElementById('inputScreen').classList.add('hidden');
+    document.getElementById('orderScreen').classList.remove('hidden');
+
+    document.getElementById('currentTable').textContent = tableNum;
+    document.getElementById('currentGuests').textContent = guestCount;
+    
+    renderMenu();
+}
+
+/**
+ * オーダー画面から会計画面へ遷移します。
+ */
+function goToCheckout() {
+    if (currentOrder.length === 0) {
+        alert("何も注文されていません。");
+        return;
+    }
+
+    document.getElementById('orderScreen').classList.add('hidden');
+    document.getElementById('checkoutScreen').classList.remove('hidden');
+    
+    renderSummary();
+}
+
+/**
+ * 決済を完了し、終了メッセージを表示します。
+ */
+function finishPayment() {
+    const method = document.getElementById('paymentMethod').value;
+    alert(`合計 ${totalAmount} 円を${method === 'cash' ? '現金' : method === 'card' ? 'クレジットカード' : 'モバイル決済'}でいただきました。ありがとうございました！`);
+    // 決済完了後、新しいお客様のためにシステムをリセット
+    resetSystem();
+}
+
+/**
+ * システム全体をリセットし、初期画面に戻します。
+ */
+function resetSystem() {
+    currentOrder = [];
+    totalAmount = 0;
+    tableNum = "";
+    guestCount = 0;
+    document.getElementById('currentOrderTotal').textContent = 0;
+    
+    // 全画面を非表示にし、初期画面を表示
+    document.getElementById('inputScreen').classList.remove('hidden');
+    document.getElementById('orderScreen').classList.add('hidden');
+    document.getElementById('checkoutScreen').classList.add('hidden');
+
+    // 人数と座席を初期値に戻す
+    document.getElementById('guests').value = 1;
+    document.getElementById('tableNumber').value = 'T1';
+
+    // メニューの数量表示をリセット（再描画）
+    renderMenu(); 
+}
+
+// --- メニュー描画関数 ---
+
+/**
+ * メニュー項目をHTMLに描画します。
+ */
+function renderMenu() {
+    document.getElementById('mainMenu').innerHTML = createMenuHTML('main');
+    document.getElementById('sideMenu').innerHTML = createMenuHTML('side');
+    document.getElementById('drinkMenu').innerHTML = createMenuHTML('drink');
+    updateTotal(); // 初期表示時に合計を更新
+}
+
+/**
+ * 特定のカテゴリのメニューHTMLを生成します。
+ * @param {string} category - メニューのカテゴリ ('main', 'side', 'drink')
+ * @returns {string} 生成されたHTML文字列
+ */
+function createMenuHTML(category) {
+    let html = '';
+    MENU[category].forEach((item, index) => {
+        // 現在の注文に含まれているか確認し、数量を取得
+        const orderItem = currentOrder.find(o => o.name === item.name);
+        const quantity = orderItem ? orderItem.quantity : 0;
+        
+        html += `
+            <div class="menu-item">
+                <span>${item.name} (${item.price}円)</span>
+                <div>
+                    <button onclick="updateOrder('${item.name}', ${item.price}, -1)">-</button>
+                    <span id="${item.name.replace(/\s/g, '')}Count">${quantity}</span>
+                    <button onclick="updateOrder('${item.name}', ${item.price}, 1)">+</button>
+                </div>
+            </div>
+        `;
+    });
+    return html;
+}
+
+// --- オーダー処理関数 ---
+
+/**
+ * 注文内容を更新し、合計金額を再計算します。
+ * @param {string} name - 商品名
+ * @param {number} price - 価格
+ * @param {number} change - 数量の増減 (+1 または -1)
+ */
+function updateOrder(name, price, change) {
+    let item = currentOrder.find(o => o.name === name);
+
+    if (item) {
+        item.quantity += change;
+        if (item.quantity <= 0) {
+            // 数量が0以下になったら配列から削除
+            currentOrder = currentOrder.filter(o => o.name !== name);
+        }
+    } else if (change > 0) {
+        // 新しい商品を注文に追加 (数量は1)
+        currentOrder.push({ name: name, price: price, quantity: 1 });
+    }
+
+    // 画面上の数量表示を更新
+    const countElement = document.getElementById(name.replace(/\s/g, '') + 'Count');
+    if (countElement) {
+        countElement.textContent = item ? item.quantity : 0;
+    }
+
+    updateTotal();
+}
+
+/**
+ * 合計金額を計算し、画面に表示を更新します。
+ */
+function updateTotal() {
+    totalAmount = currentOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    document.getElementById('currentOrderTotal').textContent = totalAmount;
+    document.getElementById('finalTotal').textContent = totalAmount;
+}
+
+// --- 会計画面描画関数 ---
+
+/**
+ * 注文の概要を会計画面に描画します。
+ */
+function renderSummary() {
+    const summaryDiv = document.getElementById('orderSummary');
+    summaryDiv.innerHTML = `<p>テーブル番号: ${tableNum} / 人数: ${guestCount}名様</p>`;
+
+    let receiptHTML = '';
+    currentOrder.forEach(item => {
+        receiptHTML += `
+            <div class="receipt-item">
+                <span>${item.name} x ${item.quantity}</span>
+                <span>${item.price * item.quantity} 円</span>
+            </div>
+        `;
+    });
+    summaryDiv.innerHTML += receiptHTML;
+}
+
+// 初期化時にメニューを一度描画
+document.addEventListener('DOMContentLoaded', renderMenu);
+
+</script>
+
+</body>
+</html>
