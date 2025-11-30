@@ -28,7 +28,16 @@
     <div id="inputScreen" class="screen">
         <h2>ステップ 1: ご案内</h2>
         <label for="guests">人数:</label>
-        <input type="number" id="guests" value="1" min="1" max="10">
+        <select id="guests">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+        </select>
         
         <label for="tableNumber">座席番号:</label>
         <select id="tableNumber">
@@ -94,8 +103,9 @@ const MENU = {
         { name: "ハンバーグプレート", price: 850 },
         { name: "お子様カレー", price: 600 },
         { name: "とろとろオムライス", price: 780 },
-        { name: "ミックスピザ", price: 920 }
-        { name: "うどん", price: 8500 }
+        { name: "ミックスピザ", price: 920 },
+        // --- ここに「うどん」を追加しました ---
+        { name: "きつねうどん", price: 700 }
     ],
     side: [
         { name: "フライドポテト", price: 350 },
@@ -122,9 +132,11 @@ let guestCount = 0;
  * 最初の画面からオーダー画面へ遷移します。
  */
 function startOrder() {
+    // select要素から人数を取得
     guestCount = parseInt(document.getElementById('guests').value);
     tableNum = document.getElementById('tableNumber').value;
 
+    // 人数チェックはドロップダウンにより不要になりましたが、念のため残しています
     if (guestCount < 1) {
         alert("人数は1名以上で入力してください。");
         return;
@@ -211,12 +223,15 @@ function createMenuHTML(category) {
         const orderItem = currentOrder.find(o => o.name === item.name);
         const quantity = orderItem ? orderItem.quantity : 0;
         
+        // メニューアイテム名にスペースが含まれる可能性があるため、IDを安全にする
+        const safeNameId = item.name.replace(/[\s\(\)]/g, ''); 
+
         html += `
             <div class="menu-item">
                 <span>${item.name} (${item.price}円)</span>
                 <div>
                     <button onclick="updateOrder('${item.name}', ${item.price}, -1)">-</button>
-                    <span id="${item.name.replace(/\s/g, '')}Count">${quantity}</span>
+                    <span id="${safeNameId}Count">${quantity}</span>
                     <button onclick="updateOrder('${item.name}', ${item.price}, 1)">+</button>
                 </div>
             </div>
@@ -235,6 +250,7 @@ function createMenuHTML(category) {
  */
 function updateOrder(name, price, change) {
     let item = currentOrder.find(o => o.name === name);
+    const safeNameId = name.replace(/[\s\(\)]/g, ''); 
 
     if (item) {
         item.quantity += change;
@@ -248,7 +264,7 @@ function updateOrder(name, price, change) {
     }
 
     // 画面上の数量表示を更新
-    const countElement = document.getElementById(name.replace(/\s/g, '') + 'Count');
+    const countElement = document.getElementById(safeNameId + 'Count');
     if (countElement) {
         countElement.textContent = item ? item.quantity : 0;
     }
@@ -292,5 +308,4 @@ document.addEventListener('DOMContentLoaded', renderMenu);
 </script>
 
 </body>
-
 </html>
