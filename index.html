@@ -10,7 +10,8 @@
         .container { max-width: 800px; margin: auto; background-color: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         h1, h2 { color: #333; text-align: center; }
         .screen { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 5px; background-color: #fff; }
-        .hidden { display: none; }
+        /* 画面遷移のために必要なCSS */
+        .hidden { display: none !important; } /* !important を追加して確実に非表示にする */
         button { padding: 10px 15px; margin: 5px; cursor: pointer; background-color: #4CAF50; color: white; border: none; border-radius: 5px; transition: background-color 0.3s; }
         button:hover { background-color: #45a049; }
         select, input[type="number"] { padding: 8px; margin: 5px; border-radius: 4px; border: 1px solid #ccc; }
@@ -23,7 +24,7 @@
 <body>
 
 <div class="container">
-    <h1>🍽️ AYAKAレストラン オーダーシステム 🍽️</h1>
+    <h1>🍽️ AYAKAレストラン オーダーシステム2 🍽️</h1>
 
     <div id="inputScreen" class="screen">
         <h2>ステップ 1: ご案内</h2>
@@ -104,7 +105,6 @@ const MENU = {
         { name: "お子様カレー", price: 600 },
         { name: "とろとろオムライス", price: 780 },
         { name: "ミックスピザ", price: 920 },
-        // --- ここに「うどん」を追加しました ---
         { name: "きつねうどん", price: 700 }
     ],
     side: [
@@ -126,24 +126,28 @@ let totalAmount = 0;
 let tableNum = "";
 let guestCount = 0;
 
+// --- 画面要素の取得（キャッシュ）---
+const inputScreen = document.getElementById('inputScreen');
+const orderScreen = document.getElementById('orderScreen');
+const checkoutScreen = document.getElementById('checkoutScreen');
+
 // --- 画面遷移関数 ---
 
 /**
  * 最初の画面からオーダー画面へ遷移します。
  */
 function startOrder() {
-    // select要素から人数を取得
     guestCount = parseInt(document.getElementById('guests').value);
     tableNum = document.getElementById('tableNumber').value;
 
-    // 人数チェックはドロップダウンにより不要になりましたが、念のため残しています
     if (guestCount < 1) {
         alert("人数は1名以上で入力してください。");
         return;
     }
 
-    document.getElementById('inputScreen').classList.add('hidden');
-    document.getElementById('orderScreen').classList.remove('hidden');
+    // ★修正ポイント: 画面の非表示/表示を切り替える
+    inputScreen.classList.add('hidden');
+    orderScreen.classList.remove('hidden');
 
     document.getElementById('currentTable').textContent = tableNum;
     document.getElementById('currentGuests').textContent = guestCount;
@@ -160,8 +164,9 @@ function goToCheckout() {
         return;
     }
 
-    document.getElementById('orderScreen').classList.add('hidden');
-    document.getElementById('checkoutScreen').classList.remove('hidden');
+    // ★修正ポイント: 画面の非表示/表示を切り替える
+    orderScreen.classList.add('hidden');
+    checkoutScreen.classList.remove('hidden');
     
     renderSummary();
 }
@@ -186,10 +191,10 @@ function resetSystem() {
     guestCount = 0;
     document.getElementById('currentOrderTotal').textContent = 0;
     
-    // 全画面を非表示にし、初期画面を表示
-    document.getElementById('inputScreen').classList.remove('hidden');
-    document.getElementById('orderScreen').classList.add('hidden');
-    document.getElementById('checkoutScreen').classList.add('hidden');
+    // ★修正ポイント: 全画面の状態を初期化（inputScreenだけ表示）
+    inputScreen.classList.remove('hidden');
+    orderScreen.classList.add('hidden');
+    checkoutScreen.classList.add('hidden');
 
     // 人数と座席を初期値に戻す
     document.getElementById('guests').value = 1;
@@ -208,7 +213,7 @@ function renderMenu() {
     document.getElementById('mainMenu').innerHTML = createMenuHTML('main');
     document.getElementById('sideMenu').innerHTML = createMenuHTML('side');
     document.getElementById('drinkMenu').innerHTML = createMenuHTML('drink');
-    updateTotal(); // 初期表示時に合計を更新
+    updateTotal();
 }
 
 /**
@@ -219,7 +224,6 @@ function renderMenu() {
 function createMenuHTML(category) {
     let html = '';
     MENU[category].forEach((item, index) => {
-        // 現在の注文に含まれているか確認し、数量を取得
         const orderItem = currentOrder.find(o => o.name === item.name);
         const quantity = orderItem ? orderItem.quantity : 0;
         
@@ -255,18 +259,20 @@ function updateOrder(name, price, change) {
     if (item) {
         item.quantity += change;
         if (item.quantity <= 0) {
-            // 数量が0以下になったら配列から削除
             currentOrder = currentOrder.filter(o => o.name !== name);
         }
     } else if (change > 0) {
-        // 新しい商品を注文に追加 (数量は1)
         currentOrder.push({ name: name, price: price, quantity: 1 });
     }
 
     // 画面上の数量表示を更新
     const countElement = document.getElementById(safeNameId + 'Count');
     if (countElement) {
-        countElement.textContent = item ? item.quantity : 0;
+        // 現在の数量を再計算して表示
+        const currentQuantity = currentOrder.find(o => o.name === name)?.quantity || 0;
+        countElement.textContent = currentQuantity;
+    } else if (currentOrder.length > 0) {
+        // メニューの再描画が必要な場合があるため、totalを更新
     }
 
     updateTotal();
@@ -302,9 +308,14 @@ function renderSummary() {
     summaryDiv.innerHTML += receiptHTML;
 }
 
-// 初期化時にメニューを一度描画
-document.addEventListener('DOMContentLoaded', renderMenu);
-
+// 初期化処理
+document.addEventListener('DOMContentLoaded', () => {
+    // 最初の画面（inputScreen）だけを表示し、他は非表示にする
+    inputScreen.classList.remove('hidden');
+    orderScreen.classList.add('hidden');
+    checkoutScreen.classList.add('hidden');
+    renderMenu();
+});
 </script>
 
 </body>
